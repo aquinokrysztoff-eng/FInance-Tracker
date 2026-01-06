@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Personal Finance Tracker</title>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #f4f6f8;
+  padding: 20px;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: background 0.3s, color 0.3s;
+}
+
+h1 {
+  background: #4CAF50;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 50px;
+  margin-bottom: 20px;
+}
+
+.main-container {
+  display: flex;
+  gap: 20px;
+  width: 100%;
+  max-width: 1100px;
+}
+
+.form-box, .records-box {
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 0 15px rgba(0,0,0,0.1);
+  transition: background 0.3s, color 0.3s;
+}
+
+.form-box { flex: 1; min-width: 300px; }
+.records-box { flex: 2; min-width: 450px; }
+
+input, select, textarea, button {
+  width: 100%;
+  padding: 10px;
+  margin: 5px 0;
+  box-sizing: border-box;
+}
+
+button {
+  background: #4CAF50;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+button:hover { background: #45a049; }
+
+.record {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 10px;
+  margin: 5px 0;
+  border-radius: 5px;
+}
+
+.record span {
+  flex: 1;
+  word-break: break-word;
+}
+
+.record.income { background: #d4edda; }
+.record.expense { background: #f8d7da; }
+
+.actions {
+  display: flex;
+  gap: 5px;
+}
+
+.edit-btn, .delete-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+.edit-btn { background: #3498db; }
+.edit-btn:hover { background: #2980b9; }
+
+.delete-btn { background: #e74c3c; }
+.delete-btn:hover { background: #c0392b; }
+
+.summary-container {
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  margin-bottom: 15px;
+}
+
+.summary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  background: #e9ecef;
+  border-radius: 10px 10px 0 0;
+}
+
+.summary-content {
+  padding: 10px;
+}
+
+.summary-container.collapsed .summary-content {
+  display: none;
+}
+
+.toggle-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #4CAF50;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  padding: 0;
+}
+
+.total {
+  text-align: center;
+  font-weight: bold;
+  margin-top: 15px;
+}
+
+body.dark {
+  background: #121212;
+  color: #e0e0e0;
+}
+
+body.dark .form-box,
+body.dark .records-box {
+  background: #1f1f1f;
+  color: #e0e0e0;
+}
+
+body.dark input,
+body.dark select,
+body.dark textarea {
+  background: #2c2c2c;
+  color: white;
+  border: 1px solid #444;
+}
+
+body.dark .summary-header {
+  background: #2a2a2a;
+}
+
+body.dark .record {
+  color: #e0e0e0;
+}
+
+body.dark .record.income {
+  background: #1e3a2a;
+}
+
+body.dark .record.expense {
+  background: #3a1e1e;
+}
+
+#darkModeBtn {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  width: 60px;
+  height: 30px;
+  border-radius: 15px;
+  background: #333;
+  color: white;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+#darkModeBtn.active {
+  background: #1abc9c;
+}
+</style>
+</head>
+
+<body>
+
+<h1>Personal Finance Tracker</h1>
+
+<div class="main-container">
+  <div class="form-box">
+    <input type="date" id="date">
+    <button onclick="setToday()">Today</button>
+    <input type="number" id="amount" placeholder="Amount (₱)">
+    <textarea id="description" placeholder="Description"></textarea>
+
+    <select id="type" onchange="toggleCategory()">
+      <option value="expense">Expense</option>
+      <option value="income">Income</option>
+    </select>
+
+    <select id="category">
+      <option value="Food">Food</option>
+      <option value="Transport">Transport</option>
+      <option value="Gaming">Gaming</option>
+      <option value="School">School</option>
+      <option value="Others">Others</option>
+    </select>
+
+    <button onclick="saveRecord()">Save Record</button>
+  </div>
+
+  <div class="records-box">
+    <div class="summary-container collapsed" id="summaryBox">
+      <div class="summary-header">
+        <strong>Summary</strong>
+        <button class="toggle-btn" onclick="toggleSummary()">▶</button>
+      </div>
+
+      <div class="summary-content">
+        <select id="summaryMonthFilter">
+          <option value="">All Months</option>
+          <option value="01">January</option>
+          <option value="02">February</option>
+          <option value="03">March</option>
+          <option value="04">April</option>
+          <option value="05">May</option>
+          <option value="06">June</option>
+          <option value="07">July</option>
+          <option value="08">August</option>
+          <option value="09">September</option>
+          <option value="10">October</option>
+          <option value="11">November</option>
+          <option value="12">December</option>
+        </select>
+
+        <select id="summaryYearFilter">
+          <option value="">All Years</option>
+        </select>
+
+        <select id="summaryType" onchange="toggleSummaryCategory()">
+          <option value="all">All</option>
+          <option value="expense">Expense</option>
+          <option value="income">Income</option>
+        </select>
+
+        <select id="summaryCategory">
+          <option value="all">All Categories</option>
+          <option value="Food">Food</option>
+          <option value="Transport">Transport</option>
+          <option value="Gaming">Gaming</option>
+          <option value="School">School</option>
+          <option value="Others">Others</option>
+        </select>
+
+        <button onclick="calculateSummary()">Filter Records</button>
+      </div>
+    </div>
+
+    <div id="recordList"></div>
+    <div class="total" id="totalAmount"></div>
+  </div>
+</div>
+
+<button id="darkModeBtn" onclick="toggleDarkMode()">Off</button>
+
+<script>
+let records = JSON.parse(localStorage.getItem("records")) || [];
+let editIndex = null;
+
+const dateInput = document.getElementById("date");
+const amountInput = document.getElementById("amount");
+const descriptionInput = document.getElementById("description");
+const typeInput = document.getElementById("type");
+const categoryInput = document.getElementById("category");
+const summaryMonthFilter = document.getElementById("summaryMonthFilter");
+const summaryYearFilter = document.getElementById("summaryYearFilter");
+const summaryType = document.getElementById("summaryType");
+const summaryCategory = document.getElementById("summaryCategory");
+const recordList = document.getElementById("recordList");
+const totalAmount = document.getElementById("totalAmount");
+
+function setToday() {
+  dateInput.value = new Date().toISOString().slice(0,10);
+}
+
+function toggleCategory() {
+  categoryInput.style.display = typeInput.value === "income" ? "none" : "block";
+}
+toggleCategory();
+
+function toggleSummaryCategory() {
+  summaryCategory.style.display =
+    summaryType.value === "expense" ? "block" : "none";
+}
+toggleSummaryCategory();
+
+function toggleSummary() {
+  const box = document.getElementById("summaryBox");
+  const btn = box.querySelector(".toggle-btn");
+  box.classList.toggle("collapsed");
+  btn.textContent = box.classList.contains("collapsed") ? "▶" : "◀";
+}
+
+function toggleDarkMode() {
+  document.body.classList.toggle("dark");
+  const btn = document.getElementById("darkModeBtn");
+  btn.classList.toggle("active");
+  btn.textContent = document.body.classList.contains("dark") ? "On" : "Off";
+}
+
+function saveRecord() {
+  const record = {
+    date: dateInput.value,
+    amount: Number(amountInput.value),
+    type: typeInput.value,
+    category: typeInput.value === "expense" ? categoryInput.value : "",
+    description: descriptionInput.value
+  };
+
+  if (!record.date || record.amount <= 0) return alert("Invalid input");
+
+  if (editIndex !== null) {
+    records[editIndex] = record;
+    editIndex = null;
+  } else {
+    records.push(record);
+  }
+
+  localStorage.setItem("records", JSON.stringify(records));
+  populateYears();
+  renderRecords();
+  amountInput.value = "";
+  descriptionInput.value = "";
+}
+
+function renderRecords() {
+  recordList.innerHTML = "";
+  let spent = 0;
+  let earned = 0;
+
+  records.forEach((r, i) => {
+    if (r.type === "expense") spent += r.amount;
+    else earned += r.amount;
+
+    const div = document.createElement("div");
+    div.className = "record";
+    div.classList.add(r.type);
+
+    div.innerHTML = `
+      <span>${r.date} | ${r.type === "expense" ? r.category : "Income"} | ₱${r.amount}${r.description ? " | " + r.description : ""}</span>
+      <div class="actions">
+        <button class="edit-btn" onclick="editRecord(${i})">✏️</button>
+        <button class="delete-btn" onclick="deleteRecord(${i})">🗑</button>
+      </div>
+    `;
+    recordList.appendChild(div);
+  });
+
+  totalAmount.innerHTML = `💰 Earned: ₱${earned} | 💸 Spent: ₱${spent} | 📊 Net: ₱${earned - spent}`;
+}
+
+function editRecord(i) {
+  const r = records[i];
+  dateInput.value = r.date;
+  amountInput.value = r.amount;
+  descriptionInput.value = r.description;
+  typeInput.value = r.type;
+  toggleCategory();
+  categoryInput.value = r.category;
+  editIndex = i;
+}
+
+function deleteRecord(i) {
+  if (!confirm("Delete record?")) return;
+  records.splice(i, 1);
+  localStorage.setItem("records", JSON.stringify(records));
+  populateYears();
+  renderRecords();
+}
+
+function populateYears() {
+  const years = [...new Set(records.map(r => r.date.split("-")[0]))].sort();
+  summaryYearFilter.innerHTML = '<option value="">All Years</option>';
+  years.forEach(y => {
+    const opt = document.createElement("option");
+    opt.value = y;
+    opt.textContent = y;
+    summaryYearFilter.appendChild(opt);
+  });
+}
+populateYears();
+
+function calculateSummary() {
+  const selMonth = summaryMonthFilter.value;
+  const selYear = summaryYearFilter.value;
+
+  let filteredRecords = records.filter((r) => {
+    const [rYear, rMonth] = r.date.split("-");
+    if (selMonth && rMonth !== selMonth) return false;
+    if (selYear && rYear !== selYear) return false;
+    if (summaryType.value !== "all" && r.type !== summaryType.value) return false;
+    if (
+      summaryType.value === "expense" &&
+      summaryCategory.value !== "all" &&
+      r.category !== summaryCategory.value
+    )
+      return false;
+    return true;
+  });
+
+  let spent = 0;
+  let earned = 0;
+
+  recordList.innerHTML = "";
+
+  filteredRecords.forEach((r) => {
+    if (r.type === "expense") spent += r.amount;
+    else earned += r.amount;
+
+    const div = document.createElement("div");
+    div.className = "record";
+    div.classList.add(r.type);
+
+    div.innerHTML = `
+      <span>${r.date} | ${r.type === "expense" ? r.category : "Income"} | ₱${r.amount}${
+      r.description ? " | " + r.description : ""
+    }</span>
+      <div class="actions">
+        <button class="edit-btn" onclick="editRecord(${records.indexOf(r)})">✏️</button>
+        <button class="delete-btn" onclick="deleteRecord(${records.indexOf(r)})">🗑</button>
+      </div>
+    `;
+    recordList.appendChild(div);
+  });
+
+  totalAmount.innerHTML = `💰 Earned: ₱${earned} | 💸 Spent: ₱${spent} | 📊 Net: ₱${earned - spent}`;
+}
+
+renderRecords();
+</script>
+
+</body>
+</html>
