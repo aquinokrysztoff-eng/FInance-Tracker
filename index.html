@@ -42,11 +42,26 @@ h1 {
 .form-box { flex: 1; min-width: 300px; }
 .records-box { flex: 2; min-width: 450px; }
 
+.form-row {
+  display: flex;
+  gap: 10px;
+}
+
+.form-row input {
+  flex: 1;
+}
+
 input, select, textarea, button {
   width: 100%;
   padding: 10px;
   margin: 5px 0;
   box-sizing: border-box;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 60px;
+  max-height: 120px;
 }
 
 button {
@@ -161,17 +176,8 @@ body.dark .summary-header {
   background: #2a2a2a;
 }
 
-body.dark .record {
-  color: #e0e0e0;
-}
-
-body.dark .record.income {
-  background: #1e3a2a;
-}
-
-body.dark .record.expense {
-  background: #3a1e1e;
-}
+body.dark .record.income { background: #1e3a2a; }
+body.dark .record.expense { background: #3a1e1e; }
 
 #darkModeBtn {
   position: fixed;
@@ -186,10 +192,6 @@ body.dark .record.expense {
   cursor: pointer;
   font-size: 12px;
 }
-
-#darkModeBtn.active {
-  background: #1abc9c;
-}
 </style>
 </head>
 
@@ -199,8 +201,11 @@ body.dark .record.expense {
 
 <div class="main-container">
   <div class="form-box">
-    <input type="date" id="date">
-    <button onclick="setToday()">Today</button>
+    <div class="form-row">
+      <input type="date" id="date">
+      <button onclick="setToday()">Today</button>
+    </div>
+
     <input type="number" id="amount" placeholder="Amount (₱)">
     <textarea id="description" placeholder="Description"></textarea>
 
@@ -248,22 +253,8 @@ body.dark .record.expense {
           <option value="">All Years</option>
         </select>
 
-        <select id="summaryType" onchange="toggleSummaryCategory()">
-          <option value="all">All</option>
-          <option value="expense">Expense</option>
-          <option value="income">Income</option>
-        </select>
-
-        <select id="summaryCategory">
-          <option value="all">All Categories</option>
-          <option value="Food">Food</option>
-          <option value="Transport">Transport</option>
-          <option value="Gaming">Gaming</option>
-          <option value="School">School</option>
-          <option value="Others">Others</option>
-        </select>
-
         <button onclick="calculateSummary()">Filter Records</button>
+        <button onclick="downloadPDF()">Download PDF</button>
       </div>
     </div>
 
@@ -273,6 +264,8 @@ body.dark .record.expense {
 </div>
 
 <button id="darkModeBtn" onclick="toggleDarkMode()">Off</button>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <script>
 let records = JSON.parse(localStorage.getItem("records")) || [];
@@ -285,8 +278,6 @@ const typeInput = document.getElementById("type");
 const categoryInput = document.getElementById("category");
 const summaryMonthFilter = document.getElementById("summaryMonthFilter");
 const summaryYearFilter = document.getElementById("summaryYearFilter");
-const summaryType = document.getElementById("summaryType");
-const summaryCategory = document.getElementById("summaryCategory");
 const recordList = document.getElementById("recordList");
 const totalAmount = document.getElementById("totalAmount");
 
@@ -299,12 +290,6 @@ function toggleCategory() {
 }
 toggleCategory();
 
-function toggleSummaryCategory() {
-  summaryCategory.style.display =
-    summaryType.value === "expense" ? "block" : "none";
-}
-toggleSummaryCategory();
-
 function toggleSummary() {
   const box = document.getElementById("summaryBox");
   const btn = box.querySelector(".toggle-btn");
@@ -314,9 +299,6 @@ function toggleSummary() {
 
 function toggleDarkMode() {
   document.body.classList.toggle("dark");
-  const btn = document.getElementById("darkModeBtn");
-  btn.classList.toggle("active");
-  btn.textContent = document.body.classList.contains("dark") ? "On" : "Off";
 }
 
 function saveRecord() {
@@ -324,130 +306,90 @@ function saveRecord() {
     date: dateInput.value,
     amount: Number(amountInput.value),
     type: typeInput.value,
-    category: typeInput.value === "expense" ? categoryInput.value : "",
+    category: typeInput.value === "expense" ? categoryInput.value : "Income",
     description: descriptionInput.value
   };
-
   if (!record.date || record.amount <= 0) return alert("Invalid input");
-
-  if (editIndex !== null) {
-    records[editIndex] = record;
-    editIndex = null;
-  } else {
-    records.push(record);
-  }
-
+  records.push(record);
   localStorage.setItem("records", JSON.stringify(records));
   populateYears();
-  renderRecords();
+  renderRecords(records);
   amountInput.value = "";
   descriptionInput.value = "";
 }
 
-function renderRecords() {
+function sortByDate(list) {
+  return list.slice().sort((a,b)=> new Date(a.date)-new Date(b.date));
+}
+
+function renderRecords(list) {
   recordList.innerHTML = "";
-  let spent = 0;
-  let earned = 0;
-
-  records.forEach((r, i) => {
-    if (r.type === "expense") spent += r.amount;
-    else earned += r.amount;
-
-    const div = document.createElement("div");
-    div.className = "record";
-    div.classList.add(r.type);
-
-    div.innerHTML = `
-      <span>${r.date} | ${r.type === "expense" ? r.category : "Income"} | ₱${r.amount}${r.description ? " | " + r.description : ""}</span>
-      <div class="actions">
-        <button class="edit-btn" onclick="editRecord(${i})">✏️</button>
-        <button class="delete-btn" onclick="deleteRecord(${i})">🗑</button>
-      </div>
-    `;
+  let spent=0, earned=0;
+  sortByDate(list).forEach(r=>{
+    if(r.type==="expense") spent+=r.amount; else earned+=r.amount;
+    const div=document.createElement("div");
+    div.className="record "+r.type;
+    div.innerHTML=`<span>${r.date} | ${r.category} | ₱${r.amount} | ${r.description||""}</span>`;
     recordList.appendChild(div);
   });
-
-  totalAmount.innerHTML = `💰 Earned: ₱${earned} | 💸 Spent: ₱${spent} | 📊 Net: ₱${earned - spent}`;
-}
-
-function editRecord(i) {
-  const r = records[i];
-  dateInput.value = r.date;
-  amountInput.value = r.amount;
-  descriptionInput.value = r.description;
-  typeInput.value = r.type;
-  toggleCategory();
-  categoryInput.value = r.category;
-  editIndex = i;
-}
-
-function deleteRecord(i) {
-  if (!confirm("Delete record?")) return;
-  records.splice(i, 1);
-  localStorage.setItem("records", JSON.stringify(records));
-  populateYears();
-  renderRecords();
+  totalAmount.textContent=`Earned: ₱${earned} | Spent: ₱${spent} | Net: ₱${earned-spent}`;
 }
 
 function populateYears() {
-  const years = [...new Set(records.map(r => r.date.split("-")[0]))].sort();
-  summaryYearFilter.innerHTML = '<option value="">All Years</option>';
-  years.forEach(y => {
-    const opt = document.createElement("option");
-    opt.value = y;
-    opt.textContent = y;
+  const years=[...new Set(records.map(r=>r.date.split("-")[0]))];
+  summaryYearFilter.innerHTML='<option value="">All Years</option>';
+  years.forEach(y=>{
+    const opt=document.createElement("option");
+    opt.value=y; opt.textContent=y;
     summaryYearFilter.appendChild(opt);
   });
 }
-populateYears();
 
 function calculateSummary() {
-  const selMonth = summaryMonthFilter.value;
-  const selYear = summaryYearFilter.value;
-
-  let filteredRecords = records.filter((r) => {
-    const [rYear, rMonth] = r.date.split("-");
-    if (selMonth && rMonth !== selMonth) return false;
-    if (selYear && rYear !== selYear) return false;
-    if (summaryType.value !== "all" && r.type !== summaryType.value) return false;
-    if (
-      summaryType.value === "expense" &&
-      summaryCategory.value !== "all" &&
-      r.category !== summaryCategory.value
-    )
-      return false;
+  const m=summaryMonthFilter.value;
+  const y=summaryYearFilter.value;
+  const filtered=records.filter(r=>{
+    const [yr,mo]=r.date.split("-");
+    if(m && mo!==m) return false;
+    if(y && yr!==y) return false;
     return true;
   });
-
-  let spent = 0;
-  let earned = 0;
-
-  recordList.innerHTML = "";
-
-  filteredRecords.forEach((r) => {
-    if (r.type === "expense") spent += r.amount;
-    else earned += r.amount;
-
-    const div = document.createElement("div");
-    div.className = "record";
-    div.classList.add(r.type);
-
-    div.innerHTML = `
-      <span>${r.date} | ${r.type === "expense" ? r.category : "Income"} | ₱${r.amount}${
-      r.description ? " | " + r.description : ""
-    }</span>
-      <div class="actions">
-        <button class="edit-btn" onclick="editRecord(${records.indexOf(r)})">✏️</button>
-        <button class="delete-btn" onclick="deleteRecord(${records.indexOf(r)})">🗑</button>
-      </div>
-    `;
-    recordList.appendChild(div);
-  });
-
-  totalAmount.innerHTML = `💰 Earned: ₱${earned} | 💸 Spent: ₱${spent} | 📊 Net: ₱${earned - spent}`;
+  renderRecords(filtered);
 }
 
-renderRecords();
+function downloadPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const m=summaryMonthFilter.value;
+  const y=summaryYearFilter.value;
+  const filtered=records.filter(r=>{
+    const [yr,mo]=r.date.split("-");
+    if(m && mo!==m) return false;
+    if(y && yr!==y) return false;
+    return true;
+  });
+  let yPos=20;
+  let spent=0,earned=0;
+  doc.setFontSize(18);
+  doc.text("Personal Finance Records",105,yPos,{align:"center"});
+  yPos+=10;
+  doc.setFontSize(10);
+  doc.text(`Month: ${m||"All"}  Year: ${y||"All"}`,14,yPos);
+  yPos+=8;
+  doc.text("Date",14,yPos); doc.text("Type",45,yPos); doc.text("Category",70,yPos); doc.text("Amount",115,yPos); doc.text("Description",145,yPos);
+  yPos+=4; doc.line(14,yPos,195,yPos); yPos+=6;
+  sortByDate(filtered).forEach(r=>{
+    if(r.type==="expense") spent+=r.amount; else earned+=r.amount;
+    doc.text(r.date,14,yPos); doc.text(r.type,45,yPos); doc.text(r.category,70,yPos); doc.text("₱"+r.amount,115,yPos); doc.text(r.description||"-",145,yPos);
+    yPos+=6; if(yPos>270){doc.addPage(); yPos=20;}
+  });
+  yPos+=8; doc.line(14,yPos,195,yPos); yPos+=8;
+  doc.text("Earned: ₱"+earned,14,yPos); yPos+=6; doc.text("Spent: ₱"+spent,14,yPos); yPos+=6; doc.text("Net: ₱"+(earned-spent),14,yPos);
+  doc.save(`Finance_${m||"All"}_${y||"All"}.pdf`);
+}
+
+populateYears();
+renderRecords(records);
 </script>
 
 </body>
